@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Daily blog generator — calls Gemini (free tier) and writes a markdown post.
+ * Daily blog generator — calls an LLM provider and writes a markdown post.
  *
  * Produces long-form (1500-2200 word), keyword-targeted, internally-linked
  * posts with TOC-friendly H2/H3 structure, a required FAQ section (picked up
  * by our FAQPage JSON-LD renderer), and a short TL;DR.
  *
  * Env:
- *   GEMINI_API_KEY — required. Free key at https://aistudio.google.com/apikey
+ *   GROQ_API_KEY   — preferred. Add as a GitHub Actions repository secret.
+ *   GROQ_MODEL     — optional, defaults to "llama-3.3-70b-versatile".
+ *   GEMINI_API_KEY — fallback. Free key at https://aistudio.google.com/apikey
  *   GEMINI_MODEL   — optional, defaults to "gemini-2.0-flash".
  *
  * Usage:
@@ -17,12 +19,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
 
-if (!API_KEY) {
+const PROVIDER = selectProvider();
+
+function selectProvider() {
+  if (GROQ_API_KEY) {
+    return { kind: 'groq', name: 'Groq', model: GROQ_MODEL };
+  }
+
+  if (GEMINI_API_KEY) {
+    return { kind: 'gemini', name: 'Gemini', model: GEMINI_MODEL };
+  }
+
   console.error(
-    'GEMINI_API_KEY is not set. Get a free key: https://aistudio.google.com/apikey',
+    'GROQ_API_KEY or GEMINI_API_KEY is not set. Add GROQ_API_KEY as a GitHub Actions repository secret, or set GEMINI_API_KEY for the Gemini fallback.',
   );
   process.exit(1);
 }
@@ -254,8 +268,41 @@ function pickTopic() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+async function callModel(prompt) {
+  if (PROVIDER.kind === 'groq') return callGroq(prompt);
+  return callGemini(prompt);
+}
+
+async function callGroq(prompt) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.8,
+      top_p: 0.95,
+      max_completion_tokens: 6000,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Groq API ${res.status}: ${body}`);
+  }
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text)
+    throw new Error(
+      'No text returned from Groq: ' + JSON.stringify(data).slice(0, 500),
+    );
+  return text;
+}
+
 async function callGemini(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -377,8 +424,9 @@ function writeFrontmatterPost(topicDef, body) {
 async function main() {
   const topic = pickTopic();
   console.log(`Topic: ${topic.topic}`);
+  console.log(`Provider: ${PROVIDER.name} (${PROVIDER.model})`);
   const prompt = buildPrompt(topic);
-  const body = await callGemini(prompt);
+  const body = await callModel(prompt);
   const file = writeFrontmatterPost(topic, body);
   if (!file) process.exit(0);
   console.log(`Done: ${file}`);
