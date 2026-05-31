@@ -43,7 +43,7 @@ export default function AboutPage() {
             Maintained by{' '}
             <Link href="https://shubhamsingla.tech">Shubham Singla</Link>. If a tool is wrong, slow, or missing a feature you&apos;d use, please{' '}
             <a
-              href="https://github.com/BeastBoyShubhz/copy-paste-converter-hub/issues"
+              href="https://github.com/CyberShubhs/copy-paste-converter-hub/issues"
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -157,7 +157,7 @@ export default function RootLayout({
                     About
                   </Link>
                   <a
-                    href="https://github.com/BeastBoyShubhz/copy-paste-converter-hub"
+                    href="https://github.com/CyberShubhs/copy-paste-converter-hub"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[color:var(--text-soft)] hover:text-[color:var(--accent)] transition-colors hidden sm:inline"
@@ -208,7 +208,7 @@ export default function RootLayout({
                     </li>
                     <li>
                       <a
-                        href="https://github.com/BeastBoyShubhz/copy-paste-converter-hub"
+                        href="https://github.com/CyberShubhs/copy-paste-converter-hub"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-[color:var(--accent)]"
